@@ -1247,36 +1247,9 @@ jobs:
           sudo wget https://github.com/codacy/codacy-clang-tidy/releases/download/${CODACY_CLANG_TIDY_VERSION}/codacy-clang-tidy-${CODACY_CLANG_TIDY_VERSION} -O /usr/local/bin/codacy-clang-tidy-${CODACY_CLANG_TIDY_VERSION}
           sudo chmod -v +x /usr/local/bin/codacy-clang-tidy-${CODACY_CLANG_TIDY_VERSION}
 
-          cat > /tmp/run-codacy-clang-tidy << EOF
-          #!/bin/bash
-
-          /usr/bin/clang-tidy-\${CLANG_TIDY_VERSION} \$@ > /tmp/out1
-          cat /tmp/out1
-
-          cat /tmp/out1 | \\
-          /usr/local/bin/codacy-clang-tidy-\${CODACY_CLANG_TIDY_VERSION} > /tmp/out2
-          cat /tmp/out2
-
-          cat /tmp/out2 | \\
-          curl -XPOST -L -H "project-token: \${PROJECT_TOKEN}" \\
-              -H "Content-type: application/json" -d @- \\
-              "\${CODACY_URL}/2.0/commit/\${COMMIT}/issuesRemoteResults"
-          echo
-
-          rm -Rf /tmp/out1
-          rm -Rf /tmp/out2
-          EOF
-
-          sudo mv -v /tmp/run-codacy-clang-tidy /usr/local/bin/run-codacy-clang-tidy
-          sudo chmod -v +x /usr/local/bin/run-codacy-clang-tidy
-
-          echo "---- /usr/local/bin/run-codacy-clang-tidy ----"
-          cat /usr/local/bin/run-codacy-clang-tidy
-          echo "----------------------------------------------"
-
-          echo "----------------------------------------------"
-          clang-tidy-10 --list-checks
-          echo "----------------------------------------------"
+    - name: List clang-tidy checks
+      run: |
+        clang-tidy-10 --list-checks
 
     - name: Build
       env:
@@ -1296,16 +1269,31 @@ jobs:
 
         /usr/bin/cmake -S. -Bbuild \
           -C .ci/initial-cache.gh.linux.cmake \
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
           -DCMAKE_C_FLAGS=-fcolor-diagnostics \
-          -DCMAKE_CXX_FLAGS=-fcolor-diagnostics \
+          -DCMAKE_CXX_FLAGS=-fcolor-diagnostics
           -DCMAKE_C_CLANG_TIDY=/usr/local/bin/run-codacy-clang-tidy \
           -DCMAKE_CXX_CLANG_TIDY=/usr/local/bin/run-codacy-clang-tidy
 
-        (cd build && make)
+        (cd build && run-clang-tidy > /tmp/out1)
+        cat /tmp/out1
+        echo
+
+        cat /tmp/out1 | \
+        /usr/local/bin/codacy-clang-tidy-${CODACY_CLANG_TIDY_VERSION} > /tmp/out2
+        cat /tmp/out2
+        echo
+
+        cat /tmp/out2 | \
+        curl -XPOST -L -H "project-token: ${PROJECT_TOKEN}" \
+            -H "Content-type: application/json" -d @- \
+            "${CODACY_URL}/2.0/commit/${COMMIT}/issuesRemoteResults"
+        echo
 
         curl -XPOST -L -H "project-token: ${PROJECT_TOKEN}" \
           -H "Content-type: application/json" \
           "${CODACY_URL}/2.0/commit/${COMMIT}/resultsFinal"
+        echo
 
   codacy-coverage:
     name: 'Codacy - coverage'

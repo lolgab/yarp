@@ -1273,7 +1273,7 @@ jobs:
           -DCMAKE_C_FLAGS=-fcolor-diagnostics \
           -DCMAKE_CXX_FLAGS=-fcolor-diagnostics
 
-        (cd build && run-clang-tidy > /tmp/out1)
+        (cd build && run-clang-tidy-10.py > /tmp/out1)
         cat /tmp/out1
         echo
 

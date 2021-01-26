@@ -1245,7 +1245,7 @@ jobs:
         echo "YARP_COLORED_OUTPUT=1" >> $GITHUB_ENV
         echo "PROJECT_TOKEN=${CODACY_TOKEN}" >> $GITHUB_ENV
         echo "COMMIT=${GITHUB_SHA}" >> $GITHUB_ENV
-        echo "CODACY_URL="https://api.codacy.com" >> $GITHUB_ENV
+        echo "CODACY_URL=https://api.codacy.com" >> $GITHUB_ENV
         echo "CODACY_CLANG_TIDY_VERSION=${CODACY_CLANG_TIDY_VERSION}" >> $GITHUB_ENV
 
     - name: Download codacy-clang-tidy

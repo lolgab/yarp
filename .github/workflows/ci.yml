@@ -1154,7 +1154,7 @@ jobs:
   codacy-clang-tidy:
     name: 'Codacy - clang-tidy'
     needs: run-cmake
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
     - name: Clone repository
       uses: actions/checkout@v2
@@ -1226,6 +1226,28 @@ jobs:
           # Remove old packages from apt cache
           sudo apt-get autoclean -qq
 
+    - name: Prepare environment
+      env:
+        CODACY_TOKEN: ${{ secrets.CODACY_TOKEN }}
+        CLANG_VERSION: 10
+        CODACY_CLANG_TIDY_VERSION: 1.2.1
+      run: |
+        echo "CLANG_VERSION=${CLANG_VERSION}" >> $GITHUB_ENV
+        echo "CC=/usr/bin/clang-${CLANG_VERSION}" >> $GITHUB_ENV
+        echo "CXX=/usr/bin/clang++-${CLANG_VERSION}" >> $GITHUB_ENV
+        echo "CFLAGS=-fcolor-diagnostics" >> $GITHUB_ENV
+        echo "CXXFLAGS=-fcolor-diagnostics" >> $GITHUB_ENV
+        echo "CLANG_TIDY=/usr/bin/clang-tidy-${CLANG_VERSION}
+        echo "RUN_CLANG_TIDY=/usr/bin/run-clang-tidy-${CLANG_VERSION}
+        echo "COLORCLI=1" >> $GITHUB_ENV
+        echo "CLICOLOR=1" >> $GITHUB_ENV
+        echo "CLICOLOR_FORCE=1" >> $GITHUB_ENV
+        echo "YARP_COLORED_OUTPUT=1" >> $GITHUB_ENV
+        echo "PROJECT_TOKEN=${CODACY_TOKEN}" >> $GITHUB_ENV
+        echo "COMMIT=${GITHUB_SHA}" >> $GITHUB_ENV
+        echo "CODACY_URL="https://api.codacy.com" >> $GITHUB_ENV
+        echo "CODACY_CLANG_TIDY_VERSION=${CODACY_CLANG_TIDY_VERSION}" >> $GITHUB_ENV
+
     - name: Download codacy-clang-tidy
       if: runner.os == 'Linux'
       uses: nick-invision/retry@v2.2.0
@@ -1237,66 +1259,66 @@ jobs:
           # Download extra packages required
           sudo apt-get install -qq -y wget \
                                       curl \
-                                      clang-10 \
-                                      clang-tidy-10 \
+                                      clang-${CLANG_VERSION} \
+                                      clang-tidy-${CLANG_VERSION} \
                                       jq
 
           # Download codacy-clang-tidy
-          export CODACY_CLANG_TIDY_VERSION=1.2.1
-
           sudo wget https://github.com/codacy/codacy-clang-tidy/releases/download/${CODACY_CLANG_TIDY_VERSION}/codacy-clang-tidy-${CODACY_CLANG_TIDY_VERSION} -O /usr/local/bin/codacy-clang-tidy-${CODACY_CLANG_TIDY_VERSION}
           sudo chmod -v +x /usr/local/bin/codacy-clang-tidy-${CODACY_CLANG_TIDY_VERSION}
 
     - name: List clang-tidy checks
       run: |
-        clang-tidy-10 --list-checks
+        # Fix .clang-tidy for clang 10
+        sed -i 's/;h;hh;hpp;hxx/,h,hh,hpp,hxx/g' .clang-tidy
+        clang-tidy-${CLANG_VERSION} -dump-config > .clang-tidy
 
-    - name: Build
-      env:
-        CODACY_TOKEN: ${{ secrets.CODACY_TOKEN }}
+        # List checks
+        clang-tidy-${CLANG_VERSION} --list-checks
+
+    - name: Run CMake
       run: |
-        export CC=/usr/bin/clang-10
-        export CXX=/usr/bin/clang++-10
-        export CLICOLOR_FORCE=1
-        export YARP_COLORED_OUTPUT=1
-
-        export PROJECT_TOKEN="${CODACY_TOKEN}"
-        export COMMIT="${GITHUB_SHA}"
-        export CODACY_URL="https://api.codacy.com"
-        export CODACY_CLANG_TIDY_VERSION=1.2.1
-        export CLANG_TIDY_VERSION=10
-
-
         /usr/bin/cmake -S. -Bbuild \
           -C .ci/initial-cache.gh.linux.cmake \
-          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-          -DCMAKE_C_FLAGS=-fcolor-diagnostics \
-          -DCMAKE_CXX_FLAGS=-fcolor-diagnostics
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
-        (cd build && run-clang-tidy-10.py > /tmp/out1)
+    - name: Run make (required for files generated at build time)
+      run: |
+        (cd build && make)
+
+    - name: Run clang-tidy
+      run: |
+        (cd build && ${RUN_CLANG_TIDY} > /tmp/out1)
         cat /tmp/out1
         echo
 
+    - name: Convert the clang-tidy output to a format that the Codacy API accepts
+      run: |
         cat /tmp/out1 | \
         /usr/local/bin/codacy-clang-tidy-${CODACY_CLANG_TIDY_VERSION} > /tmp/out2
-        cat /tmp/out2
+        cat /tmp/out2 | js -S
         echo
 
+    - name: Send the results to Codacy
+      run: |
         cat /tmp/out2 | \
         curl -XPOST -L -H "project-token: ${PROJECT_TOKEN}" \
             -H "Content-type: application/json" -d @- \
             "${CODACY_URL}/2.0/commit/${COMMIT}/issuesRemoteResults"
         echo
 
+    - name: Signal that Codacy can use the sent results and start a new analysis
+      run: |
         curl -XPOST -L -H "project-token: ${PROJECT_TOKEN}" \
           -H "Content-type: application/json" \
           "${CODACY_URL}/2.0/commit/${COMMIT}/resultsFinal"
         echo
 
+
   codacy-coverage:
     name: 'Codacy - coverage'
     needs: run-cmake
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
     - name: Clone repository
       uses: actions/checkout@v2

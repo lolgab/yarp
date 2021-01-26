@@ -1237,8 +1237,8 @@ jobs:
         echo "CXX=/usr/bin/clang++-${CLANG_VERSION}" >> $GITHUB_ENV
         echo "CFLAGS=-fcolor-diagnostics" >> $GITHUB_ENV
         echo "CXXFLAGS=-fcolor-diagnostics" >> $GITHUB_ENV
-        echo "CLANG_TIDY=/usr/bin/clang-tidy-${CLANG_VERSION}
-        echo "RUN_CLANG_TIDY=/usr/bin/run-clang-tidy-${CLANG_VERSION}
+        echo "CLANG_TIDY=/usr/bin/clang-tidy-${CLANG_VERSION}" >> $GITHUB_ENV
+        echo "RUN_CLANG_TIDY=/usr/bin/run-clang-tidy-${CLANG_VERSION}" >> $GITHUB_ENV
         echo "COLORCLI=1" >> $GITHUB_ENV
         echo "CLICOLOR=1" >> $GITHUB_ENV
         echo "CLICOLOR_FORCE=1" >> $GITHUB_ENV
@@ -1269,7 +1269,7 @@ jobs:
 
     - name: List clang-tidy checks
       run: |
-        # Fix .clang-tidy for clang 10
+        # Fix .clang-tidy for clang 10 (see https://reviews.llvm.org/D75621)
         sed -i 's/;h;hh;hpp;hxx/,h,hh,hpp,hxx/g' .clang-tidy
         clang-tidy-${CLANG_VERSION} -dump-config > .clang-tidy
 

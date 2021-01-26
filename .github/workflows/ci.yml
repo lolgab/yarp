@@ -575,7 +575,8 @@ jobs:
                                       libftdi-dev \
                                       libi2c-dev \
                                       libfuse-dev \
-                                      libjpeg-dev
+                                      libjpeg-dev \
+                                      libpcl-dev
 
           # Install SWIG and bindings dependencies
           sudo apt-get install -qq -y swig \
@@ -612,7 +613,7 @@ jobs:
           echo &
           echo # To avoid problems with non-relocatable packages, we unzip the archive exactly in the same C:/robotology/vcpkg &
           that has been used to create the pre-compiled archive &
-          wget -nv https://github.com/robotology/robotology-superbuild-dependencies-vcpkg/releases/download/v0.5.1/vcpkg-robotology-yarp-only.zip &
+          wget -nv https://github.com/robotology/robotology-superbuild-dependencies-vcpkg/releases/download/v0.6.0/vcpkg-robotology-yarp-only.zip &
           7z x -oC:\ vcpkg-robotology-yarp-only.zip &
           echo &
           echo # Download and install YCM &
@@ -1207,7 +1208,8 @@ jobs:
                                       libftdi-dev \
                                       libi2c-dev \
                                       libfuse-dev \
-                                      libjpeg-dev
+                                      libjpeg-dev \
+                                      libpcl-dev
 
           # Install SWIG and bindings dependencies
           sudo apt-get install -qq -y swig \
@@ -1260,21 +1262,11 @@ jobs:
           sudo apt-get install -qq -y wget \
                                       curl \
                                       clang-${CLANG_VERSION} \
-                                      clang-tidy-${CLANG_VERSION} \
-                                      jq
+                                      clang-tidy-${CLANG_VERSION}
 
           # Download codacy-clang-tidy
           sudo wget https://github.com/codacy/codacy-clang-tidy/releases/download/${CODACY_CLANG_TIDY_VERSION}/codacy-clang-tidy-${CODACY_CLANG_TIDY_VERSION} -O /usr/local/bin/codacy-clang-tidy-${CODACY_CLANG_TIDY_VERSION}
           sudo chmod -v +x /usr/local/bin/codacy-clang-tidy-${CODACY_CLANG_TIDY_VERSION}
-
-    - name: List clang-tidy checks
-      run: |
-        # Fix .clang-tidy for clang 10 (see https://reviews.llvm.org/D75621)
-        sed -i 's/;h;hh;hpp;hxx/,h,hh,hpp,hxx/g' .clang-tidy
-        clang-tidy-${CLANG_VERSION} -dump-config > .clang-tidy
-
-        # List checks
-        clang-tidy-${CLANG_VERSION} --list-checks
 
     - name: Run CMake
       run: |
@@ -1286,18 +1278,27 @@ jobs:
       run: |
         (cd build && make)
 
+    - name: List clang-tidy checks
+      run: |
+        # Fix .clang-tidy for clang 10 (see https://reviews.llvm.org/D75621)
+        sed -i 's/;h;hh;hpp;hxx/,h,hh,hpp,hxx/g' .clang-tidy
+        ${CLANG_TIDY} -dump-config > .clang-tidy
+
+        # Print the .clang-tidy file
+        cat .clang-tidy
+        echo
+
+        # List checks
+        ${CLANG_TIDY} -list-checks
+
     - name: Run clang-tidy
       run: |
-        (cd build && ${RUN_CLANG_TIDY} > /tmp/out1)
-        cat /tmp/out1
-        echo
+        (cd build && ${RUN_CLANG_TIDY} | tee /tmp/out1)
 
     - name: Convert the clang-tidy output to a format that the Codacy API accepts
       run: |
         cat /tmp/out1 | \
-        /usr/local/bin/codacy-clang-tidy-${CODACY_CLANG_TIDY_VERSION} > /tmp/out2
-        cat /tmp/out2 | js -S
-        echo
+        /usr/local/bin/codacy-clang-tidy-${CODACY_CLANG_TIDY_VERSION} | tee /tmp/out2
 
     - name: Send the results to Codacy
       run: |
@@ -1371,7 +1372,8 @@ jobs:
                                       libftdi-dev \
                                       libi2c-dev \
                                       libfuse-dev \
-                                      libjpeg-dev
+                                      libjpeg-dev \
+                                      libpcl-dev
 
           # Install SWIG and bindings dependencies
           sudo apt-get install -qq -y swig \

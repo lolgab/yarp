@@ -1282,7 +1282,6 @@ jobs:
       run: |
         # Fix .clang-tidy for clang 10 (see https://reviews.llvm.org/D75621)
         sed -i 's/;h;hh;hpp;hxx/,h,hh,hpp,hxx/g' .clang-tidy
-        ${CLANG_TIDY} -dump-config > .clang-tidy
 
         # Print the .clang-tidy file
         cat .clang-tidy
